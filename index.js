@@ -132,7 +132,7 @@ function notify(currentResponse){
   var dayNumber = appointment.getDate();
   var appointmentHour = appointment.getHours();
   var appointmentMinutes = (appointment.getMinutes() == 0 ? "00" : appointment.getMinutes());
-  var message = `¡Hola! Te recuerdo tu cita para ${name} el ${dayName} ${dayNumber} a las ${appointmentHour}:${appointmentMinutes}. \n\nResponde con *SI* o *NO* para confirmar tu cita (en mayúsculas).`;
+  var message = `¡Hola! Te recuerdo tu cita en Fisiopeques el ${dayName} ${dayNumber} a las ${appointmentHour}:${appointmentMinutes}. \nSi tu cita es para fisioterapia respiratoria será necesario un ayuno de 2 horas, para si es por cualquier otro motivo no hay ninguna restricción con la comida. \n\nResponde con *SI* o *NO* para confirmar tu cita (en mayúsculas).`;
   var shouldBeProccesed = number !== undefined && isValidPhoneNumber(number) && !isAlreadyConfirmed(name) && !isAlreadyCancelled(name) && !isNaN(dayNumber) && !isNaN(appointmentHour);
   var chatID = `34${number}@c.us`
 
@@ -302,11 +302,21 @@ function start(client) {
   whatsClient = client;  
 
   client.onMessage(async message => {
-    switch (message.body){
+    var inputMessage = message.body;
+
+    if (inputMessage == undefined) return;
+    
+    if (inputMessage.includes("SI")){
+      inputMessage = "SI";
+    } else if (inputMessage.includes("NO")){
+      inputMessage = "NO";
+    }
+    
+    switch (inputMessage){
       case "SI":
         if (isAppointmentConfirmed(message.chatId, "SI")){
           markAsConfirmed(message.chatId);
-          await client.sendText(message.from, '¡Gracias!');        
+          await client.sendText(message.from, '¡Gracias! Hasta mañana.');        
         }         
       break;
       case "NO":
