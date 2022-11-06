@@ -4,8 +4,15 @@ const express = require('express');
 const { google } = require('googleapis');
 const config = require('./prueba-366211-32bf1c5313d1.json');
 const contacts = require('./dictionary.json');
-  
+
 const app = express();
+const cors = require('cors');
+
+let corsOptions = {
+  origin : ['http://localhost:4200'],
+}
+
+app.use(cors(corsOptions));
   
 const SCOPES = 'https://www.googleapis.com/auth/calendar';
 const GOOGLE_PRIVATE_KEY= config.private_key;
@@ -30,6 +37,7 @@ const NOT_EXCLUDED_YET = -1;
 
 var excludeProcessed = [];
 var confirmed = [];
+var todayUsers = [];
 
 app.get('/', (req, res) => {
   // var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
@@ -80,6 +88,14 @@ app.get('/confirmados', (req,res) => {
   res.send(JSON.stringify(confirmed));        
 });
 
+app.get('/todayList', (req,res) => {
+  res.send(JSON.stringify(todayUsers));        
+});
+
+app.get('/dictionary', (req,res) => {
+  res.send(JSON.stringify(contacts));
+});
+
 app.get('/restart', (req, res) => {
   excludeProcessed = [];
   confirmed = [];
@@ -121,8 +137,9 @@ function translateDay(day){
 }
 
 function notify(currentResponse){  
+  
   var name = currentResponse.summary;  
-  var number = contacts[name]?.number;  // var number = currentResponse.description;  
+  var number = getNumber(name); //contacts[name]?.number;  // var number = currentResponse.description;  
   var startHour = currentResponse.start.dateTime;  
   var endHour = currentResponse.end.dateTime;  
   var appointment = new Date(startHour);
@@ -137,11 +154,22 @@ function notify(currentResponse){
   var chatID = `34${number}@c.us`
 
   if (shouldBeProccesed) {
+    todayUsers.push({name: name, number: number, confirmed: false});
     populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID);
     processMessage(name, number, message, appointmentID, startHour, endHour);
   } else {
     console.log(`Won't process ${name}'s appointment.`)
   }
+}
+
+function getNumber(name){
+  var number = undefined;
+  contacts.forEach(contact =>{
+    if (contact.name == name){            
+      number = contact.number;
+    }
+  });
+  return number;
 }
 
 function isAlreadyConfirmed(name){
