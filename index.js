@@ -42,11 +42,13 @@ var todayUsers = [];
 // *************
 // * ENDPOINTS *
 // ************* 
-app.get('/launchNotifications/:professional', (req, res) => {
+app.get('/launchNotifications/:professional', (req, res) => {  
+  console.log(req.header("key"));
+
     if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){        
         var calendar_specific_id = "";
 
-        if (req.query.professional === "Lau")
+        if (req.params.professional === "Lau")
             calendar_specific_id = GOOGLE_CALENDAR_ID;
         else 
             calendar_specific_id = GOOGLE_CALENDAR_ID_CAR;
@@ -89,8 +91,7 @@ app.get('/launchNotifications/:professional', (req, res) => {
 });
 
 app.get('/confirmed', (req,res) => {  
-    if (typeof req.header("key") !== 'undefined' && config.KEY === req.header("key")){        
-      console.log("holi");
+    if (typeof req.header("key") !== 'undefined' && config.KEY === req.header("key")){      
         res.status(200).send(JSON.stringify(confirmed));
     } else {
         res.status(401).send("Unathorized");
@@ -98,20 +99,19 @@ app.get('/confirmed', (req,res) => {
 });
 
 app.get('/todayList', (req,res) => {
-  console.log(req.header("key"));
-    if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){        
-        res.status(200).send(JSON.stringify(todayUsers));  
-    } else {        
-        res.status(401).send("Unathorized");
-    }
+  if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){
+    res.status(200).send(JSON.stringify(confirmed));
+  }else {
+    res.status(401).send("Unathorized");
+  } 
 });
 
 app.get('/dictionary', (req,res) => {
-    if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){       
-        res.status(200).send(JSON.stringify(contacts));
-    } else {        
-        res.status(401).send("Unathorized");
-    }
+  if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){       
+      res.status(200).send(JSON.stringify(contacts));
+  } else {        
+      res.status(401).send("Unathorized");
+  }
 });
 
 app.get('/restart', (req, res) => {
@@ -171,8 +171,7 @@ function translateDay(day){
   return translatedDay;
 }
 
-function notify(currentResponse){  
-  
+function notify(currentResponse){
   var name = currentResponse.summary;  
   var number = getNumber(name); 
   var startHour = currentResponse.start.dateTime;  
@@ -248,7 +247,7 @@ function sendMessage(name, chatID, message){
   console.log(`Message: ${message}`);
   console.log("----------------------------------");
     
-//   whatsClient.sendText(chatID, message);  
+  whatsClient.sendText(chatID, message);  
 }
 
 function populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID){
@@ -352,48 +351,48 @@ function markAsCancelled(chatID){
 
 var whatsClient;
 
-// wa.create({
-//   sessionId: "CAL_TEST",
-//   multiDevice: false,
-//   authTimeout: 60, 
-//   blockCrashLogs: true,
-//   disableSpins: true,
-//   headless: true,
-//   hostNotificationLang: 'PT_BR',
-//   logConsole: false,
-//   popup: true,
-//   qrTimeout: 0, 
-// }).then(client => start(client));
+wa.create({
+  sessionId: "CAL_TEST",
+  multiDevice: false,
+  authTimeout: 60, 
+  blockCrashLogs: true,
+  disableSpins: true,
+  headless: true,
+  hostNotificationLang: 'PT_BR',
+  logConsole: false,
+  popup: true,
+  qrTimeout: 0, 
+}).then(client => start(client));
 
-// function start(client) {  
-//   whatsClient = client;  
+function start(client) {  
+  whatsClient = client;  
 
-//   client.onMessage(async message => {
-//     var inputMessage = message.body;
+  client.onMessage(async message => {
+    var inputMessage = message.body;
 
-//     if (inputMessage == undefined) return;
+    if (inputMessage == undefined) return;
     
-//     if (inputMessage.includes("SI")){
-//       inputMessage = "SI";
-//     } else if (inputMessage.includes("NO")){
-//       inputMessage = "NO";
-//     }
+    if (inputMessage.includes("SI")){
+      inputMessage = "SI";
+    } else if (inputMessage.includes("NO")){
+      inputMessage = "NO";
+    }
     
-//     switch (inputMessage){
-//       case "SI":
-//         if (isAppointmentConfirmed(message.chatId, "SI")){
-//           markAsConfirmed(message.chatId);
-//           await client.sendText(message.from, '¡Gracias! Hasta mañana.');        
-//         }         
-//       break;
-//       case "NO":
-//         if (isAppointmentConfirmed(message.chatId, "NO")){
-//           markAsCancelled(message.chatId);
-//           await client.sendText(message.from, '¡Gracias! Puedes reagendar tu cita aquí: www.fisiopeques.com/citas');
-//         }
-//       break;
-//       default:
-//       break;
-//     }
-//   });
-// }
+    switch (inputMessage){
+      case "SI":
+        if (isAppointmentConfirmed(message.chatId, "SI")){
+          markAsConfirmed(message.chatId);
+          await client.sendText(message.from, '¡Gracias! Hasta mañana.');        
+        }         
+      break;
+      case "NO":
+        if (isAppointmentConfirmed(message.chatId, "NO")){
+          markAsCancelled(message.chatId);
+          await client.sendText(message.from, '¡Gracias! Puedes reagendar tu cita aquí: www.fisiopeques.com/citas');
+        }
+      break;
+      default:
+      break;
+    }
+  });
+}
