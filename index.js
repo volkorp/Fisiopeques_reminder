@@ -39,73 +39,108 @@ var excludeProcessed = [];
 var confirmed = [];
 var todayUsers = [];
 
-app.get('/', (req, res) => {
-  // var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    
-  // if (ip != config.authorized_ip) {
-  //   res.send(JSON.stringify({ message: "Not valid!" }));   
-  //   return;
-  // } else {
-  //   res.send(JSON.stringify({ message: "Ole ole" }));   
-  // }
+// *************
+// * ENDPOINTS *
+// ************* 
+app.get('/launchNotifications/:professional', (req, res) => {
+    if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){        
+        var calendar_specific_id = "";
 
-  var timeMin = new Date();
-  timeMin.setDate(timeMin.getDate() + 1);
-  timeMin.setHours(0,0,1);
+        if (req.query.professional === "Lau")
+            calendar_specific_id = GOOGLE_CALENDAR_ID;
+        else 
+            calendar_specific_id = GOOGLE_CALENDAR_ID_CAR;
 
-  var timeMax = new Date();
-  timeMax.setDate(timeMax.getDate() + 1);
-  timeMax.setHours(23,59,59);
+        var timeMin = new Date();
+        timeMin.setDate(timeMin.getDate() + 1);
+        timeMin.setHours(0,0,1);
 
-  calendar.events.list({
-    calendarId: GOOGLE_CALENDAR_ID,
-    timeMin: timeMin.toISOString(),
-    timeMax: timeMax.toISOString(),
-    maxResults: 40,
-    singleEvents: true,
-    orderBy: 'startTime',
-  }, (error, result) => {
-    if (error) {
-      res.send(JSON.stringify({ error: error }));
-    } else {
+        var timeMax = new Date();
+        timeMax.setDate(timeMax.getDate() + 1);
+        timeMax.setHours(23,59,59);
 
-      if (result.data.items.length) {        
-        var response = result.data.items;
+        calendar.events.list({
+            calendarId: calendar_specific_id,
+            timeMin: timeMin.toISOString(),
+            timeMax: timeMax.toISOString(),
+            maxResults: 40,
+            singleEvents: true,
+            orderBy: 'startTime',
+        }, (error, result) => {
+            if (error) {
+                res.status(500).send(JSON.stringify({ error: error }));
+            } else {
+                if (result.data.items.length) {        
+                    var response = result.data.items;
 
-        response.forEach(current => {
-          notify(current);
+                    response.forEach(current => {
+                        notify(current);
+                    });
+
+                    res.status(200).send(JSON.stringify({ message: 'Processed.' }));        
+                } else {
+                    res.status(200).send(JSON.stringify({ message: 'No upcoming events found.' }));
+                }
+            }
         });
-
-         res.send(JSON.stringify({ events: result.data.items }));        
-      } else {
-        res.send(JSON.stringify({ message: 'No upcoming events found.' }));
-      }
-    }
-  });
+    }else {
+        res.status(401).send("Unathorized");
+    } 
 });
 
-app.get('/confirmados', (req,res) => {
-  res.send(JSON.stringify(confirmed));        
+app.get('/confirmed', (req,res) => {  
+    if (typeof req.header("key") !== 'undefined' && config.KEY === req.header("key")){        
+      console.log("holi");
+        res.status(200).send(JSON.stringify(confirmed));
+    } else {
+        res.status(401).send("Unathorized");
+    } 
 });
 
 app.get('/todayList', (req,res) => {
-  res.send(JSON.stringify(todayUsers));        
+  console.log(req.header("key"));
+    if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){        
+        res.status(200).send(JSON.stringify(todayUsers));  
+    } else {        
+        res.status(401).send("Unathorized");
+    }
 });
 
 app.get('/dictionary', (req,res) => {
-  res.send(JSON.stringify(contacts));
+    if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){       
+        res.status(200).send(JSON.stringify(contacts));
+    } else {        
+        res.status(401).send("Unathorized");
+    }
 });
 
 app.get('/restart', (req, res) => {
-  excludeProcessed = [];
-  confirmed = [];
+    if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){       
+        excludeProcessed = [];
+        confirmed = [];
 
-  res.send(JSON.stringify({message: 'Memory cleaned!'}));
+        res.status(200).send(JSON.stringify({message: 'Memory cleaned!'}));
+    } else {        
+        res.status(401).send("Unathorized");
+    }
+});
+
+app.post('/update',function(req,res){
+    if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){       
+        excludeProcessed = [];
+        confirmed = [];
+
+        res.status(200).send(JSON.stringify({message: 'Memory cleaned!'}));
+    } else {        
+        res.status(401).send("Unathorized");
+    }
 });
   
 app.listen(3000, () => console.log(`App listening on port 3000!`));
 
-
+// *************
+// * Functions *
+// ************* 
 function translateDay(day){
   var translatedDay = "";
 
@@ -139,7 +174,7 @@ function translateDay(day){
 function notify(currentResponse){  
   
   var name = currentResponse.summary;  
-  var number = getNumber(name); //contacts[name]?.number;  // var number = currentResponse.description;  
+  var number = getNumber(name); 
   var startHour = currentResponse.start.dateTime;  
   var endHour = currentResponse.end.dateTime;  
   var appointment = new Date(startHour);
@@ -213,7 +248,7 @@ function sendMessage(name, chatID, message){
   console.log(`Message: ${message}`);
   console.log("----------------------------------");
     
-  whatsClient.sendText(chatID, message);  
+//   whatsClient.sendText(chatID, message);  
 }
 
 function populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID){
@@ -270,6 +305,8 @@ function markAsConfirmed(chatID){
       eventId: appointmentID, 
       resource: object
     });
+
+    console.log(`--> ¡${name} ha CONFIRMADO su cita!`);
 }
 
 function markAsCancelled(chatID){
@@ -309,52 +346,54 @@ function markAsCancelled(chatID){
       eventId: appointmentID, 
       resource: resourceData
     });
+
+    console.log(`--> ¡${name} ha CANCELADO su cita!`);
 }
 
 var whatsClient;
 
-wa.create({
-  sessionId: "CAL_TEST",
-  multiDevice: false,
-  authTimeout: 60, 
-  blockCrashLogs: true,
-  disableSpins: true,
-  headless: true,
-  hostNotificationLang: 'PT_BR',
-  logConsole: false,
-  popup: true,
-  qrTimeout: 0, 
-}).then(client => start(client));
+// wa.create({
+//   sessionId: "CAL_TEST",
+//   multiDevice: false,
+//   authTimeout: 60, 
+//   blockCrashLogs: true,
+//   disableSpins: true,
+//   headless: true,
+//   hostNotificationLang: 'PT_BR',
+//   logConsole: false,
+//   popup: true,
+//   qrTimeout: 0, 
+// }).then(client => start(client));
 
-function start(client) {  
-  whatsClient = client;  
+// function start(client) {  
+//   whatsClient = client;  
 
-  client.onMessage(async message => {
-    var inputMessage = message.body;
+//   client.onMessage(async message => {
+//     var inputMessage = message.body;
 
-    if (inputMessage == undefined) return;
+//     if (inputMessage == undefined) return;
     
-    if (inputMessage.includes("SI")){
-      inputMessage = "SI";
-    } else if (inputMessage.includes("NO")){
-      inputMessage = "NO";
-    }
+//     if (inputMessage.includes("SI")){
+//       inputMessage = "SI";
+//     } else if (inputMessage.includes("NO")){
+//       inputMessage = "NO";
+//     }
     
-    switch (inputMessage){
-      case "SI":
-        if (isAppointmentConfirmed(message.chatId, "SI")){
-          markAsConfirmed(message.chatId);
-          await client.sendText(message.from, '¡Gracias! Hasta mañana.');        
-        }         
-      break;
-      case "NO":
-        if (isAppointmentConfirmed(message.chatId, "NO")){
-          markAsCancelled(message.chatId);
-          await client.sendText(message.from, '¡Gracias! Puedes reagendar tu cita aquí: www.fisiopeques.com/citas');
-        }
-      break;
-      default:
-      break;
-    }
-  });
-}
+//     switch (inputMessage){
+//       case "SI":
+//         if (isAppointmentConfirmed(message.chatId, "SI")){
+//           markAsConfirmed(message.chatId);
+//           await client.sendText(message.from, '¡Gracias! Hasta mañana.');        
+//         }         
+//       break;
+//       case "NO":
+//         if (isAppointmentConfirmed(message.chatId, "NO")){
+//           markAsCancelled(message.chatId);
+//           await client.sendText(message.from, '¡Gracias! Puedes reagendar tu cita aquí: www.fisiopeques.com/citas');
+//         }
+//       break;
+//       default:
+//       break;
+//     }
+//   });
+// }
