@@ -75,7 +75,7 @@ function getTable(payload){
 
     try {            
       console.log(table);         
-      const data = db.query_noParams(`SELECT * FROM ${table} ${join} ${where}`);
+      const data = db.query_noParams(`SELECT ${fields} FROM ${table} ${join} ${where}`);
       data.statusCode = 200;
       resolve(data);
         
