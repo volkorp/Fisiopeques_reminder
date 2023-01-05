@@ -372,7 +372,7 @@ function start(client) {
 
     if (inputMessage == undefined) return;
     
-    if (inputMessage.includes("SI")){
+    if (inputMessage.includes("SI") || inputMessage.equals("Sí") || inputMessage.equals("oki") || inputMessage.equals("ok") || inputMessage.equals("Sii") ){
       inputMessage = "SI";
     } else if (inputMessage.includes("NO")){
       inputMessage = "NO";
@@ -382,7 +382,7 @@ function start(client) {
       case "SI":
         if (isAppointmentConfirmed(message.chatId, "SI")){
           markAsConfirmed(message.chatId);
-          await client.sendText(message.from, '¡Gracias! Hasta mañana.');        
+          await client.sendText(message.from, '¡Gracias! ¡Hasta mañana!');        
         }         
       break;
       case "NO":
