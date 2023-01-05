@@ -1,36 +1,5 @@
 const db = require('../db');
 
-/**
- * Login
- */
-
-//  function doLogin(username, bAuth){
-//   return new Promise((resolve, reject) => {
-//     let messages = [];
-//     let password = bAuth.split(" ")[1];
-
-//     try {          
-//       const data = db.query(`SELECT username, isAdmin FROM Login WHERE username = ? AND password = ?`, [username, password]);
-      
-//       if (data && data.length > 0) {
-//         resolve(data);
-//       } else {
-//         resolve(401);
-//       }
-      
-//     } catch (err) {
-//       console.error(err);
-//       let error = new Error(messages.join());
-//       error.statusCode = 500;
-//       error.message="Error al consultar la información."
-//       reject(error);
-//     }
-//   });
-//  }
-
-
-
-
 // function updateTable(payload){
 //   return new Promise((resolve, reject) => {
 //     try {
@@ -83,6 +52,21 @@ const db = require('../db');
 function getTable(payload){
   return new Promise((resolve, reject) => {
     let table = payload.table
+    let fields = "*"
+    let join = ""
+    let where = ""
+
+    if (payload.fields && payload.fields != undefined){
+      fields = payload.fields
+    }
+
+    if (payload.join && payload.join != undefined){
+      join = payload.join
+    }
+
+    if (payload.where && payload.where != undefined){
+      where = payload.where
+    }
 
     if (!table || table == undefined || table == "Login"){
       let response = { message: 'No se pudo encontrar la tabla especificada.', statusCode: 404 };
@@ -91,7 +75,7 @@ function getTable(payload){
 
     try {            
       console.log(table);         
-      const data = db.query_noParams(`SELECT * FROM ${table}`);
+      const data = db.query_noParams(`SELECT * FROM ${table} ${join} ${where}`);
       data.statusCode = 200;
       resolve(data);
         

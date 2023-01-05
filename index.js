@@ -4,6 +4,7 @@ const express = require('express');
 const { google } = require('googleapis');
 const config = require('./config.json');
 const contacts = require('./dictionary.json');
+const dbQueries = require('./dbQueries.json');
 const dbFunctions = require('./services/dbFuntions');
 const app = express();
 const cors = require('cors');
@@ -101,7 +102,17 @@ app.get('/confirmed', (req,res) => {
 
 app.get('/todayList', (req,res) => {
   if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){
-    res.status(200).send(JSON.stringify(confirmed));
+    // res.status(200).send(JSON.stringify(confirmed));
+    var payload = dbQueries.todayList
+
+    dbFunctions.getTable(payload).then(resultado => {
+      if(resultado && resultado.statusCode){
+          res.status(resultado.statusCode).json(resultado);
+      }
+    }, err =>{
+        console.error(`[Error] `, err.message);          
+        res.sendStatus(err.statusCode);
+    });
   }else {
     res.status(401).send("Unathorized");
   } 
@@ -400,16 +411,3 @@ var whatsClient;
 // }
 
 
-app.get('/test', (req,res) => {  
-
-  var payload = { table: "Patient" }
-
-  dbFunctions.getTable(payload).then(resultado => {
-    if(resultado && resultado.statusCode){
-        res.status(resultado.statusCode).json(resultado);
-    }
-  }, err =>{
-      console.error(`[Error] `, err.message);          
-      res.sendStatus(err.statusCode);
-  });
-});
