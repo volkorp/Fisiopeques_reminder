@@ -92,17 +92,16 @@ app.get('/launchNotifications/:professional', (req, res) => {
     } 
 });
 
-app.get('/confirmed', (req,res) => {  
-    if (typeof req.header("key") !== 'undefined' && config.KEY === req.header("key")){      
-        res.status(200).send(JSON.stringify(confirmed));
-    } else {
-        res.status(401).send("Unathorized");
-    } 
-});
+// app.get('/confirmed', (req,res) => {  
+//     if (typeof req.header("key") !== 'undefined' && config.KEY === req.header("key")){      
+//         res.status(200).send(JSON.stringify(confirmed));
+//     } else {
+//         res.status(401).send("Unathorized");
+//     } 
+// });
 
 app.get('/todayList', (req,res) => {
-  if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){
-    // res.status(200).send(JSON.stringify(confirmed));
+  if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){    
     var payload = dbQueries.todayList
 
     dbFunctions.getTable(payload).then(resultado => {
@@ -118,24 +117,53 @@ app.get('/todayList', (req,res) => {
   } 
 });
 
-app.get('/dictionary', (req,res) => {
-  if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){       
-      res.status(200).send(JSON.stringify(contacts));
-  } else {        
-      res.status(401).send("Unathorized");
-  }
+app.get('/clients', (req,res) => {
+  console.log("/clients");
+  if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){    
+    var payload = dbQueries.getClients
+
+    dbFunctions.getTable(payload).then(resultado => {
+      if(resultado && resultado.statusCode){
+          res.status(resultado.statusCode).json(resultado);
+      }
+    }, err =>{
+        console.error(`[Error] `, err.message);          
+        res.sendStatus(err.statusCode);
+    });
+  }else {
+    res.status(401).send("Unathorized");
+  } 
 });
 
-app.get('/restart', (req, res) => {
-    if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){       
-        excludeProcessed = [];
-        confirmed = [];
+// app.post('/addClient', (req,res) => {
+//   console.log("/add");
 
-        res.status(200).send(JSON.stringify({message: 'Memory cleaned!'}));
-    } else {        
-        res.status(401).send("Unathorized");
-    }
-});
+//   if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){    
+//     var payload = dbQueries.getClients
+
+//     dbFunctions.getTable(payload).then(resultado => {
+//       if(resultado && resultado.statusCode){
+//           res.status(resultado.statusCode).json(resultado);
+//       }
+//     }, err =>{
+//         console.error(`[Error] `, err.message);          
+//         res.sendStatus(err.statusCode);
+//     });
+//   }else {
+//     res.status(401).send("Unathorized");
+//   } 
+// });
+
+// app.get('/restart', (req, res) => {
+//     if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){       
+//         excludeProcessed = [];
+//         confirmed = [];
+
+//         res.status(200).send(JSON.stringify({message: 'Memory cleaned!'}));
+//     } else {        
+//         res.status(401).send("Unathorized");
+//     }
+// });
 
 app.post('/update',function(req,res){
     if (typeof req.header("key") !== 'undefined' && config.KEY == req.header("key")){       
@@ -185,38 +213,53 @@ function translateDay(day){
 
 function notify(currentResponse){
   var name = currentResponse.summary;  
-  var number = getNumber(name); 
-  var startHour = currentResponse.start.dateTime;  
-  var endHour = currentResponse.end.dateTime;  
-  var appointment = new Date(startHour);
-  var appointmentID = currentResponse.id;
+  getNumber(name).then(number =>{
+    var startHour = currentResponse.start.dateTime;  
+    var endHour = currentResponse.end.dateTime;  
+    var appointment = new Date(startHour);
+    var appointmentID = currentResponse.id;
+  
+    var dayName = translateDay(appointment.getDay());
+    var dayNumber = appointment.getDate();
+    var appointmentHour = appointment.getHours();
+    var appointmentMinutes = (appointment.getMinutes() == 0 ? "00" : appointment.getMinutes());
+    var message = `¡Hola! Te recuerdo tu cita en Fisiopeques el ${dayName} ${dayNumber} a las ${appointmentHour}:${appointmentMinutes}. \nSi tu cita es para fisioterapia respiratoria será necesario un ayuno de 2 horas, si es por cualquier otro motivo no hay ninguna restricción con la comida. \n\nResponde con *SI* o *NO* para confirmar tu cita (en mayúsculas).`;
+    var shouldBeProccesed = number !== undefined && isValidPhoneNumber(number) && !isAlreadyConfirmed(name) && !isAlreadyCancelled(name) && !isNaN(dayNumber) && !isNaN(appointmentHour);
+    var chatID = `34${number}@c.us`
+  
+    if (shouldBeProccesed) {
+      // todayUsers.push({name: name, number: number, confirmed: false});
+      populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID);
+      processMessage(name, number, message, appointmentID, startHour, endHour);
+    } else {
+      if(name != "NO CITAR"){
+        notProcessed.push({name: name, number: number, confirmed: false});
+        console.log(`Won't process ${name}'s appointment.`)
+      }
+    }
+  }); 
 
-  var dayName = translateDay(appointment.getDay());
-  var dayNumber = appointment.getDate();
-  var appointmentHour = appointment.getHours();
-  var appointmentMinutes = (appointment.getMinutes() == 0 ? "00" : appointment.getMinutes());
-  var message = `¡Hola! Te recuerdo tu cita en Fisiopeques el ${dayName} ${dayNumber} a las ${appointmentHour}:${appointmentMinutes}. \nSi tu cita es para fisioterapia respiratoria será necesario un ayuno de 2 horas, si es por cualquier otro motivo no hay ninguna restricción con la comida. \n\nResponde con *SI* o *NO* para confirmar tu cita (en mayúsculas).`;
-  var shouldBeProccesed = number !== undefined && isValidPhoneNumber(number) && !isAlreadyConfirmed(name) && !isAlreadyCancelled(name) && !isNaN(dayNumber) && !isNaN(appointmentHour);
-  var chatID = `34${number}@c.us`
-
-  if (shouldBeProccesed) {
-    // todayUsers.push({name: name, number: number, confirmed: false});
-    populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID);
-    processMessage(name, number, message, appointmentID, startHour, endHour);
-  } else {
-    notProcessed.push({name: name, number: number, confirmed: false});
-    console.log(`Won't process ${name}'s appointment.`)
-  }
 }
 
 function getNumber(name){
-  var number = undefined;
-  contacts.forEach(contact =>{
-    if (contact.name == name){            
-      number = contact.number;
-    }
+  return new Promise((resolve, reject) => {
+    var number = undefined;
+    var payload = dbQueries.getNumber;
+  
+    dbFunctions.nameExists(payload, name).then(resultado => {
+      if(resultado && resultado != undefined && resultado.statusCode && resultado.length > 0){                    
+          if(resultado[0]?.name == name) {            
+            number = resultado[0].number;
+          }    
+      }
+      resolve(number);
+    }, err =>{
+        console.error(`[Error] `, err.message);  
+        resolve(number);      
+    });
+
+
   });
-  return number;
 }
 
 function isAlreadyConfirmed(name){

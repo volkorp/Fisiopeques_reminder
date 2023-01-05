@@ -73,8 +73,7 @@ function getTable(payload){
       resolve(response);
     } 
 
-    try {            
-      console.log(table);         
+    try {                  
       const data = db.query_noParams(`SELECT ${fields} FROM ${table} ${join} ${where}`);
       data.statusCode = 200;
       resolve(data);
@@ -87,6 +86,49 @@ function getTable(payload){
   });
 }
 
+function nameExists(payload, paramsInput){
+  return new Promise((resolve, reject) => {
+    let table = payload.table
+    let fields = "*"
+    let join = ""
+    let where = ""
+    
+    if (payload.fields && payload.fields != undefined){
+      fields = payload.fields
+    }
+
+    if (payload.join && payload.join != undefined){
+      join = payload.join
+    }
+
+    if (payload.where && payload.where != undefined){
+      where = payload.where
+    }
+
+    if (paramsInput && paramsInput != undefined){      
+      where = where.replace("{CHANGEME}", paramsInput)
+    }
+
+    if (!table || table == undefined || table == "Login"){
+      let response = { message: 'No se pudo encontrar la tabla especificada.', statusCode: 404 };
+      resolve(response);
+    } 
+
+    try {            
+      console.log(`SELECT ${fields} FROM ${table} ${join} ${where}`);         
+      const data = db.query_noParams(`SELECT ${fields} FROM ${table} ${join} ${where}`);
+      data.statusCode = 200;      
+      resolve(data);
+        
+    } catch (err) {
+      console.error(err);
+      let response = { message: 'Error interno del servidor.', statusCode: 500 };
+      reject(response);
+    }
+  });
+}
+
 module.exports = {
-  getTable
+  getTable,
+  nameExists
 }
