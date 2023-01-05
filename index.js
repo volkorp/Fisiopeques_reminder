@@ -2,9 +2,9 @@
 const wa = require('@open-wa/wa-automate');  
 const express = require('express');
 const { google } = require('googleapis');
-const config = require('./prueba-366211-32bf1c5313d1.json');
+const config = require('./config.json');
 const contacts = require('./dictionary.json');
-
+const dbFunctions = require('./services/dbFuntions');
 const app = express();
 const cors = require('cors');
 
@@ -37,7 +37,8 @@ const NOT_EXCLUDED_YET = -1;
 
 var excludeProcessed = [];
 var confirmed = [];
-var todayUsers = [];
+// var todayUsers = [];
+var notProcessed = [];
 
 // *************
 // * ENDPOINTS *
@@ -188,10 +189,11 @@ function notify(currentResponse){
   var chatID = `34${number}@c.us`
 
   if (shouldBeProccesed) {
-    todayUsers.push({name: name, number: number, confirmed: false});
+    // todayUsers.push({name: name, number: number, confirmed: false});
     populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID);
     processMessage(name, number, message, appointmentID, startHour, endHour);
   } else {
+    notProcessed.push({name: name, number: number, confirmed: false});
     console.log(`Won't process ${name}'s appointment.`)
   }
 }
@@ -247,7 +249,7 @@ function sendMessage(name, chatID, message){
   console.log(`Message: ${message}`);
   console.log("----------------------------------");
     
-  whatsClient.sendText(chatID, message);  
+  // whatsClient.sendText(chatID, message);  
 }
 
 function populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID){
@@ -351,48 +353,63 @@ function markAsCancelled(chatID){
 
 var whatsClient;
 
-wa.create({
-  sessionId: "CAL_TEST",
-  multiDevice: false,
-  authTimeout: 60, 
-  blockCrashLogs: true,
-  disableSpins: true,
-  headless: true,
-  hostNotificationLang: 'PT_BR',
-  logConsole: false,
-  popup: true,
-  qrTimeout: 0, 
-}).then(client => start(client));
+// wa.create({
+//   sessionId: "CAL_TEST",
+//   multiDevice: false,
+//   authTimeout: 60, 
+//   blockCrashLogs: true,
+//   disableSpins: true,
+//   headless: true,
+//   hostNotificationLang: 'PT_BR',
+//   logConsole: false,
+//   popup: true,
+//   qrTimeout: 0, 
+// }).then(client => start(client));
 
-function start(client) {  
-  whatsClient = client;  
+// function start(client) {  
+//   whatsClient = client;  
 
-  client.onMessage(async message => {
-    var inputMessage = message.body;
+//   client.onMessage(async message => {
+//     var inputMessage = message.body;
 
-    if (inputMessage == undefined) return;
+//     if (inputMessage == undefined) return;
     
-    if (inputMessage.includes("SI") || inputMessage.equals("Sí") || inputMessage.equals("oki") || inputMessage.equals("ok") || inputMessage.equals("Sii") ){
-      inputMessage = "SI";
-    } else if (inputMessage.includes("NO")){
-      inputMessage = "NO";
-    }
+//     if (inputMessage.includes("SI") || inputMessage.equals("Sí") || inputMessage.equals("oki") || inputMessage.equals("ok") || inputMessage.equals("Sii") ){
+//       inputMessage = "SI";
+//     } else if (inputMessage.includes("NO")){
+//       inputMessage = "NO";
+//     }
     
-    switch (inputMessage){
-      case "SI":
-        if (isAppointmentConfirmed(message.chatId, "SI")){
-          markAsConfirmed(message.chatId);
-          await client.sendText(message.from, '¡Gracias! ¡Hasta mañana!');        
-        }         
-      break;
-      case "NO":
-        if (isAppointmentConfirmed(message.chatId, "NO")){
-          markAsCancelled(message.chatId);
-          await client.sendText(message.from, '¡Gracias! Puedes reagendar tu cita aquí: www.fisiopeques.com/citas');
-        }
-      break;
-      default:
-      break;
+//     switch (inputMessage){
+//       case "SI":
+//         if (isAppointmentConfirmed(message.chatId, "SI")){
+//           markAsConfirmed(message.chatId);
+//           await client.sendText(message.from, '¡Gracias! ¡Hasta mañana!');        
+//         }         
+//       break;
+//       case "NO":
+//         if (isAppointmentConfirmed(message.chatId, "NO")){
+//           markAsCancelled(message.chatId);
+//           await client.sendText(message.from, '¡Gracias! Puedes reagendar tu cita aquí: www.fisiopeques.com/citas');
+//         }
+//       break;
+//       default:
+//       break;
+//     }
+//   });
+// }
+
+
+app.get('/test', (req,res) => {  
+
+  var payload = { table: "Patient" }
+
+  dbFunctions.getTable(payload).then(resultado => {
+    if(resultado && resultado.statusCode){
+        res.status(resultado.statusCode).json(resultado);
     }
+  }, err =>{
+      console.error(`[Error] `, err.message);          
+      res.sendStatus(err.statusCode);
   });
-}
+});

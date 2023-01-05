@@ -63,3 +63,4 @@ _IGNORE_CAL_TEST/
 **.node-persist**
 **_IGNORE_**
 # end managed
+*.db
