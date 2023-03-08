@@ -8,6 +8,7 @@ const dbQueries = require('./dbQueries.json');
 const dbFunctions = require('./services/dbFuntions');
 const app = express();
 const cors = require('cors');
+const messageUtils = require('./utils/messageUtils')
 
 let corsOptions = {
   origin : ['http://localhost:4200'],
@@ -76,7 +77,7 @@ app.get('/launchNotifications/:professional', (req, res) => {
             } else {
                 if (result.data.items.length) {        
                     var response = result.data.items;
-
+                    console.log(response); // AQUI 20230308
                     response.forEach(current => {
                         notify(current);
                     });
@@ -181,35 +182,7 @@ app.listen(3000, () => console.log(`App listening on port 3000!`));
 // *************
 // * Functions *
 // ************* 
-function translateDay(day){
-  var translatedDay = "";
 
-  switch (day){
-    case 1:
-      translatedDay = "lunes";
-    break;
-    case 2:
-      translatedDay = "martes";
-    break;
-    case 3:
-      translatedDay = "miércoles";
-    break;
-    case 4:
-      translatedDay = "jueves";
-    break;    
-    case 5:
-      translatedDay = "viernes";
-    break;
-    case 6:
-      translatedDay = "sábado";
-    break;
-    case 7:
-      translatedDay = "domingo"
-    break;
-  }
-
-  return translatedDay;
-}
 
 function notify(currentResponse){
   var name = currentResponse.summary;  
@@ -219,17 +192,21 @@ function notify(currentResponse){
     var appointment = new Date(startHour);
     var appointmentID = currentResponse.id;
   
-    var dayName = translateDay(appointment.getDay());
+    var dayName = messageUtils.translateDay(appointment.getDay());
     var dayNumber = appointment.getDate();
     var appointmentHour = appointment.getHours();
     var appointmentMinutes = (appointment.getMinutes() == 0 ? "00" : appointment.getMinutes());
     var message = `¡Hola! Te recuerdo tu cita en Fisiopeques el ${dayName} ${dayNumber} a las ${appointmentHour}:${appointmentMinutes}. \nSi tu cita es para fisioterapia respiratoria será necesario un ayuno de 2 horas, si es por cualquier otro motivo no hay ninguna restricción con la comida. \n\nResponde con *SI* o *NO* para confirmar tu cita (en mayúsculas).`;
-    var shouldBeProccesed = number !== undefined && isValidPhoneNumber(number) && !isAlreadyConfirmed(name) && !isAlreadyCancelled(name) && !isNaN(dayNumber) && !isNaN(appointmentHour);
+    var shouldBeProccesed = number !== undefined && messageUtils.isValidPhoneNumber(number) && !messageUtils.isAlreadyConfirmed(name) && !messageUtils.isAlreadyCancelled(name) && !isNaN(dayNumber) && !isNaN(appointmentHour);
     var chatID = `34${number}@c.us`
+    var location = currentResponse.location !== undefined ? currentResponse.location : "";
+    var description =  currentResponse.description !== undefined ? currentResponse.description : "";
+
+    console.log(location);
   
     if (shouldBeProccesed) {
       // todayUsers.push({name: name, number: number, confirmed: false});
-      populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID);
+      populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID, location, description);
       processMessage(name, number, message, appointmentID, startHour, endHour);
     } else {
       if(name != "NO CITAR"){
@@ -262,23 +239,6 @@ function getNumber(name){
   });
 }
 
-function isAlreadyConfirmed(name){
-  return name.includes("*");
-}
-
-function isAlreadyCancelled(name){
-  return name.includes("@");
-}
-
-function isValidPhoneNumber(number){
-  return isNumeric(number) && number.length === 9;
-}
-
-function isNumeric(str) {
-  if (typeof str != "string") return false 
-  return !isNaN(str) && !isNaN(parseFloat(str)) 
-}
-
 function processMessage(name, number, message, appointmentID){
   var succeded = false;
     
@@ -287,6 +247,7 @@ function processMessage(name, number, message, appointmentID){
     
     var chatID = `34${number}@c.us`
     sendMessage(name, chatID, message);
+    // dbFunctions.insertProcessed(); //AQUI
   }else{
     console.log("Ya no se procesa");
   }
@@ -303,11 +264,11 @@ function sendMessage(name, chatID, message){
   console.log(`Message: ${message}`);
   console.log("----------------------------------");
     
-  // whatsClient.sendText(chatID, message);  
+  whatsClient.sendText(chatID, message);  
 }
 
-function populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID){
-  confirmed.push({name: name, confirmed: "", chatID: chatID, startHour: startHour, endHour: endHour, appointmentID: appointmentID});  
+function populateToBeConfirmed(name, chatID, startHour, endHour, appointmentID, location, description){
+  confirmed.push({name: name, confirmed: "", chatID: chatID, startHour: startHour, endHour: endHour, appointmentID: appointmentID, location: location, description: description});  
 }
 
 function isAppointmentConfirmed(chatID, confirmation){
@@ -328,6 +289,8 @@ function markAsConfirmed(chatID){
   var endHour = "";
   var name = ""
   var appointmentID = "";
+  var location = "";
+  var description = "";
 
   confirmed.forEach(appointment => {
     if(appointment.chatID == chatID){
@@ -335,6 +298,8 @@ function markAsConfirmed(chatID){
       endHour = appointment.endHour;
       name = appointment.name;
       appointmentID = appointment.appointmentID;
+      location = appointment.location;
+      description = appointment.description;
     }
   });
 
@@ -352,7 +317,9 @@ function markAsConfirmed(chatID){
       'start': {
           'dateTime': startHour,
           'timeZone': 'Europe/Madrid'
-      }
+      },
+      'description': description,
+      'location': location
     };
 
     calendar.events.update({      
@@ -407,50 +374,50 @@ function markAsCancelled(chatID){
 
 var whatsClient;
 
-// wa.create({
-//   sessionId: "CAL_TEST",
-//   multiDevice: false,
-//   authTimeout: 60, 
-//   blockCrashLogs: true,
-//   disableSpins: true,
-//   headless: true,
-//   hostNotificationLang: 'PT_BR',
-//   logConsole: false,
-//   popup: true,
-//   qrTimeout: 0, 
-// }).then(client => start(client));
+wa.create({
+  sessionId: "CAL_TEST",
+  multiDevice: false,
+  authTimeout: 60, 
+  blockCrashLogs: true,
+  disableSpins: true,
+  headless: true,
+  hostNotificationLang: 'PT_BR',
+  logConsole: false,
+  popup: true,
+  qrTimeout: 0, 
+}).then(client => start(client));
 
-// function start(client) {  
-//   whatsClient = client;  
+function start(client) {  
+  whatsClient = client;  
 
-//   client.onMessage(async message => {
-//     var inputMessage = message.body;
+  client.onMessage(async message => {
+    var inputMessage = message.body.trim();
 
-//     if (inputMessage == undefined) return;
+    if (inputMessage == undefined) return;
     
-//     if (inputMessage.includes("SI") || inputMessage.equals("Sí") || inputMessage.equals("oki") || inputMessage.equals("ok") || inputMessage.equals("Sii") ){
-//       inputMessage = "SI";
-//     } else if (inputMessage.includes("NO")){
-//       inputMessage = "NO";
-//     }
+    if (inputMessage.includes("SI") || inputMessage.includes("Sí") || inputMessage.includes("oki") || inputMessage.includes("ok") || inputMessage.includes("Sii") || inputMessage.includes("Si") || inputMessage === "si" ){
+      inputMessage = "SI";
+    } else if (inputMessage.includes("NO")){
+      inputMessage = "NO";
+    }
     
-//     switch (inputMessage){
-//       case "SI":
-//         if (isAppointmentConfirmed(message.chatId, "SI")){
-//           markAsConfirmed(message.chatId);
-//           await client.sendText(message.from, '¡Gracias! ¡Hasta mañana!');        
-//         }         
-//       break;
-//       case "NO":
-//         if (isAppointmentConfirmed(message.chatId, "NO")){
-//           markAsCancelled(message.chatId);
-//           await client.sendText(message.from, '¡Gracias! Puedes reagendar tu cita aquí: www.fisiopeques.com/citas');
-//         }
-//       break;
-//       default:
-//       break;
-//     }
-//   });
-// }
+    switch (inputMessage){
+      case "SI":
+        if (isAppointmentConfirmed(message.chatId, "SI")){
+          markAsConfirmed(message.chatId);
+          await client.sendText(message.from, '¡Gracias! ¡Hasta mañana!');        
+        }         
+      break;
+      case "NO":
+        if (isAppointmentConfirmed(message.chatId, "NO")){
+          markAsCancelled(message.chatId);
+          await client.sendText(message.from, '¡Gracias! Puedes reagendar tu cita aquí: www.fisiopeques.com/citas');
+        }
+      break;
+      default:
+      break;
+    }
+  });
+}
 
 
